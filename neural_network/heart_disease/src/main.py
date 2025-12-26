@@ -15,9 +15,7 @@ class NeuralNetwork(nn.Module):
         super().__init__()
         self.flatten = nn.Flatten()
         self.linear_relu_stack = nn.Sequential(
-            nn.Linear(13, 64),
-            nn.ReLU(),
-            nn.Linear(64, 32),
+            nn.Linear(13, 32),
             nn.ReLU(),
             nn.Linear(32, 8),
             nn.ReLU(),
@@ -68,3 +66,7 @@ for epoch in range(epochs):
     train_loop(train_loader, model, loss_fn, optimizer)
     print(f"Epoch {epoch + 1}/{epochs} completada")
     test_loop(test_loader, model)
+
+
+torch.save(model.state_dict(), "model_weights.pth")
+print("Modelo guardado correctamente")

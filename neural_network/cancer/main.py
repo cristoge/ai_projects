@@ -12,19 +12,13 @@ transform = transforms.Compose(
     ]
 )
 
-# dataset https://www.kaggle.com/datasets/fanconic/skin-cancer-malignant-vs-benign
 dataset = datasets.ImageFolder(root="./archive/data/", transform=transform)
 
-train_size = int(0.8 * len(dataset))
-test_size = len(dataset) - train_size
-
-train_dataset, test_dataset = torch.utils.data.random_split(
-    dataset, [train_size, test_size]
-)
+train_dataset = datasets.ImageFolder(root="./archive/data/train", transform=transform)
+test_dataset  = datasets.ImageFolder(root="./archive/data/test", transform=transform)
 
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
-
 
 class NeuralNetwork(nn.Module):
     def __init__(self):
@@ -39,7 +33,11 @@ class NeuralNetwork(nn.Module):
             nn.Flatten(),
             nn.Linear(32, 128),
             nn.ReLU(),
-            nn.Linear(128, 2),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 2),
         )
 
     def forward(self, x):
@@ -57,6 +55,8 @@ def train_loop(dataloader, model, loss_fn, optimizer):
     model.train()
     correct = 0
     total = 0
+    total_loss = 0
+
     for X, y in dataloader:
         X, y = X.to(device), y.to(device)
 
@@ -66,24 +66,42 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
         correct += (pred.argmax(1) == y).sum().item()
         total += y.size(0)
-    print(f"Train Accuracy epoch: {correct / total:.2f}, Loss: {loss.item():.4f}")
+        total_loss += loss.item() * y.size(0)  # acumula la loss
+
+    avg_loss = total_loss / total  # loss promedio de toda la época
+    accuracy = correct / total
+    print(f"Train Accuracy epoch: {accuracy:.2f}, Loss: {avg_loss:.4f}")
+    return avg_loss, accuracy
 
 
-def test_loop(dataloader, model):
+def test_loop(dataloader, model, loss_fn=None):
     model.eval()
     correct = 0
     total = 0
+    total_loss = 0
 
     with torch.no_grad():
         for X, y in dataloader:
             X, y = X.to(device), y.to(device)
             pred = model(X)
+
             correct += (pred.argmax(1) == y).sum().item()
             total += y.size(0)
 
-    print(f"Accuracy: {correct / total:.2f}")
+            if loss_fn is not None:
+                total_loss += loss_fn(pred, y).item() * y.size(0)
+
+    accuracy = correct / total
+    if loss_fn is not None:
+        avg_loss = total_loss / total
+        print(f"Test Accuracy: {accuracy:.2f}, Loss: {avg_loss:.4f}")
+        return avg_loss, accuracy
+    else:
+        print(f"Test Accuracy: {accuracy:.2f}")
+        return accuracy
 
 
 epochs = 5

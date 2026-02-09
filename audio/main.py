@@ -14,7 +14,7 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 # --------------------------
 # Carreguem JSON
 # --------------------------
-with open("./vowels/alex.json") as f:
+with open("./vowels/main.json") as f:
     data = json.load(f)
 
 print("Número de segments:", len(data))
@@ -26,7 +26,7 @@ print(data[30])
 X = []
 y = []
 
-wav_file = "./vowels/alex.wav"
+wav_file = "./vowels/main.wav"
 
 for i in range(len(data)):
     start = float(data[i]["start"])

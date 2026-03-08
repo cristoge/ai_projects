@@ -1,21 +1,14 @@
 import sentencepiece as spm
+import pandas as pd
 
-x = [
-    "Esta película fue fantástica, la actuación fue excelente y la historia muy atractiva.",
-    "Realmente me encantó esta película, los personajes eran interesantes y la trama emocionante.",
-    "Una película increíble con actuaciones brillantes y una banda sonora hermosa.",
-    "Esta película fue aburrida y demasiado larga, casi me quedo dormido.",
-    "Una película terrible con mala actuación y una historia predecible.",
-    "Disfruté la película, fue entretenida y bien dirigida.",
-    "La película empezó bien pero el final fue decepcionante.",
-    "Una película absolutamente maravillosa, definitivamente la volvería a ver.",
-    "Esta fue una película muy mala, el guion era débil y la actuación peor.",
-    "Una película decente con algunos buenos momentos pero en general promedio.",
-]
+df = pd.read_csv("./archive/IMDB Dataset SPANISH.csv")
+
+# Tomamos solo la columna en español
+reviews_es = df["review_es"].tolist()
 spm.SentencePieceTrainer.Train(
-    sentence_iterator=iter(x),
+    sentence_iterator=iter(reviews_es),
     model_prefix="imdb_model",
-    vocab_size=100,
+    vocab_size=15000,
     pad_id=0,
     unk_id=1,
     bos_id=2,

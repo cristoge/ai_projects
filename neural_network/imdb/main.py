@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from dataset import get_data  # tu función para cargar el dataset
 
@@ -6,19 +7,16 @@ from dataset import get_data  # tu función para cargar el dataset
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("Usando:", device)
 
-# 🔹 Modelo y tokenizer
+# 🔹 Hiperparámetros
 MODEL_NAME = "google-bert/bert-base-uncased"
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
-model.to(device)
-
-# 🔹 Configuración rápida para entrenar menos tiempo
-batch_size = 32  # más ejemplos por batch
-max_length = 128  # menos tokens por review
-epochs = 1  # solo 1 pasada sobre todo el dataset
-learning_rate = 1e-3  # lr más alto para acelerar el aprendizaje
+batch_size = 32
+max_length = 128
+epochs = 3
+learning_rate = 1e-3
+num_labels = 2
 
 # 🔹 DataLoaders
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 train_loader, test_loader = get_data(
     "./IMDB Dataset SPANISH.csv",
     tokenizer,
@@ -26,8 +24,22 @@ train_loader, test_loader = get_data(
     max_length=max_length,
 )
 
-# 🔹 Loss y optimizador
-loss_fn = torch.nn.CrossEntropyLoss()
+
+# 🔹 Clase solo para el modelo
+class BertClassifier(nn.Module):
+    def __init__(self, model_name, num_labels):
+        super().__init__()
+        self.model = AutoModelForSequenceClassification.from_pretrained(
+            model_name, num_labels=num_labels
+        )
+
+    def forward(self, input_ids, attention_mask):
+        return self.model(input_ids=input_ids, attention_mask=attention_mask).logits
+
+
+# 🔹 Instanciamos modelo, loss y optimizador
+model = BertClassifier(MODEL_NAME, num_labels).to(device)
+loss_fn = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 
@@ -40,8 +52,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         attention_mask = batch["attention_mask"].to(device)
         labels = batch["labels"].to(device)
 
-        outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-        logits = outputs.logits
+        logits = model(input_ids, attention_mask)
         loss = loss_fn(logits, labels)
         total_loss += loss.item()
 
@@ -57,15 +68,14 @@ def test_loop(dataloader, model):
     model.eval()
     correct = 0
     total = 0
-
     with torch.no_grad():
         for batch in dataloader:
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             labels = batch["labels"].to(device)
 
-            outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-            pred = outputs.logits.argmax(dim=1)
+            logits = model(input_ids, attention_mask)
+            pred = logits.argmax(dim=1)
             correct += (pred == labels).sum().item()
             total += labels.size(0)
 

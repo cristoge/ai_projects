@@ -6,46 +6,39 @@ import numpy as np
 
 # Carga el modelo
 model = YOLO("yolo11n.pt")
-tracker = sv.ByteTrack(minimum_consecutive_frames=3)
-tracker.reset()
-# Inicializa el anotador de cajas
-bounding_box_annotator = sv.BoxAnnotator()  # ya no necesita argumentos
+
+CLASSES = [2]  # coches
 POLYGON = np.array(
     [
-        [75.89, 1062.05],
-        [864.61, 525.64],
-        [1035.89, 416.92],
-        [1139.48, 312.30],
-        [1238.97, 216.92],
-        [1334.35, 112.30],
-        [1446.15, 114.35],
-        [1432.82, 160.51],
-        [1471.79, 209.74],
-        [1583.58, 302.05],
-        [1698.46, 425.12],
-        [1919.99, 651.79],
-        [1919.99, 1079.48],
+        [2.7507163323782233, 916.8481375358166],
+        [613.4097421203438, 600.5157593123208],
+        [874.7277936962751, 438.2234957020057],
+        [1309.3409742120343, 135.64469914040114],
+        [1037.0200573065902, 146.64756446991404],
+        [695.9312320916905, 253.92550143266473],
+        [283.323782234957, 391.4613180515759],
+        [11.002865329512893, 490.48710601719193],
     ],
     dtype=np.int32,
 )
-polygon_zone = sv.PolygonZone(polygon=POLYGON, triggering_anchors=(sv.Position.CENTER,))
 
-CLASSES = [2]  # coches
-label_annotator = sv.LabelAnnotator(text_color=Color.BLUE)
-trace_annotator = sv.TraceAnnotator(trace_length=10)
-LINE_1_START = sv.Point(1128, 314)
-LINE_1_END = sv.Point(1626, 314)
+polygon_zone = sv.PolygonZone(polygon=POLYGON, triggering_anchors=(sv.Position.CENTER,))
+tracker = sv.ByteTrack(minimum_consecutive_frames=3)
+tracker.reset()
+LINE_1_START = sv.Point(22, 501)
+LINE_1_END = sv.Point(322, 768)
 LINE_ZONE = sv.LineZone(
     start=LINE_1_START, end=LINE_1_END, triggering_anchors=(sv.Position.BOTTOM_CENTER,)
 )
+
+bounding_box_annotator = sv.BoxAnnotator()  # ya no necesita argumentos
+label_annotator = sv.LabelAnnotator(text_color=Color.BLUE)
+trace_annotator = sv.TraceAnnotator(trace_length=10)
 line_zone_annotator = sv.LineZoneAnnotator(
     text_orient_to_line=True,
     text_scale=0.8,
-    custom_in_text="in:)",
-    display_out_count=False,
-)
-line_zone_annotator_multiclass = sv.LineZoneAnnotatorMulticlass(
-    text_scale=0.8, text_thickness=2, table_margin=20
+    display_in_count=False,
+    custom_out_text="cars out",
 )
 
 
@@ -57,23 +50,14 @@ def main():
     )
 
     for i, frame in enumerate(frame_generator):
-        # Procesa el frame con YOLO
-        # YOLO
         result = model(frame, device="cuda", verbose=False, imgsz=1280)[0]
         detections = sv.Detections.from_ultralytics(result)
-
-        # filtro zona
         detections = detections[polygon_zone.trigger(detections)]
-
-        # filtro clases
         detections = detections[(detections.class_id == 2) | (detections.class_id == 3)]
-
-        # tracking
         detections = tracker.update_with_detections(detections)
-
-        # labels (AHORA sí correcto)
-        labels = [f"#{tid}" for tid in detections.tracker_id]
-        # Anota las detecciones en una copia del frame
+        labels = []
+        for tid in detections.tracker_id:
+            labels.append(f"#{tid}")
         LINE_ZONE.trigger(detections=detections)
         annotated_frame = bounding_box_annotator.annotate(
             scene=frame.copy(), detections=detections

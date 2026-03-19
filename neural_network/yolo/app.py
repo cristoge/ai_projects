@@ -30,16 +30,30 @@ POLYGON = np.array(
 )
 polygon_zone = sv.PolygonZone(polygon=POLYGON, triggering_anchors=(sv.Position.CENTER,))
 
-CLASSES = [2, 3]
+CLASSES = [2]  # coches
 label_annotator = sv.LabelAnnotator(text_color=Color.BLUE)
 trace_annotator = sv.TraceAnnotator(trace_length=10)
+LINE_1_START = sv.Point(1128, 314)
+LINE_1_END = sv.Point(1626, 314)
+LINE_ZONE = sv.LineZone(
+    start=LINE_1_START, end=LINE_1_END, triggering_anchors=(sv.Position.BOTTOM_CENTER,)
+)
+line_zone_annotator = sv.LineZoneAnnotator(
+    text_orient_to_line=True,
+    text_scale=0.8,
+    custom_in_text="in:)",
+    display_out_count=False,
+)
+line_zone_annotator_multiclass = sv.LineZoneAnnotatorMulticlass(
+    text_scale=0.8, text_thickness=2, table_margin=20
+)
 
 
 def main():
     video_file_path = "./video.mp4"
 
     frame_generator = sv.get_video_frames_generator(
-        source_path=video_file_path, stride=2
+        source_path=video_file_path, stride=1
     )
 
     for i, frame in enumerate(frame_generator):
@@ -60,7 +74,7 @@ def main():
         # labels (AHORA sí correcto)
         labels = [f"#{tid}" for tid in detections.tracker_id]
         # Anota las detecciones en una copia del frame
-        detections = detections[(detections.class_id == 2) | (detections.class_id == 3)]
+        LINE_ZONE.trigger(detections=detections)
         annotated_frame = bounding_box_annotator.annotate(
             scene=frame.copy(), detections=detections
         )
@@ -72,6 +86,9 @@ def main():
         )
         annotated_frame = trace_annotator.annotate(
             scene=annotated_frame, detections=detections
+        )
+        annotated_frame = line_zone_annotator.annotate(
+            annotated_frame, line_counter=LINE_ZONE
         )
         cv2.imshow("Processed Video", annotated_frame)
         if cv2.waitKey(1) & 0xFF == ord("q"):

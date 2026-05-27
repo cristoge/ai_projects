@@ -1,21 +1,37 @@
-from pine import get_index
-from sentence_transformers import SentenceTransformer
+from langchain_ollama import ChatOllama
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+from vector import get_vectorstore
+from dotenv import load_dotenv
+import os
 
-model = SentenceTransformer("all-MiniLM-L6-v2")
+load_dotenv()
 
-index = get_index()
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL")
 
-while True:
-    question = input("Pregunta: ")
+vectorstore = get_vectorstore()
+retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 
-    query_embedding = model.encode([question], device="cuda")[0]
+llm = ChatOllama(model="gemma4:e4b", base_url=OLLAMA_BASE_URL)
 
-    results = index.query(
-        vector=query_embedding.tolist(), top_k=5, include_metadata=True
-    )
+prompt = ChatPromptTemplate.from_template("""
+Responde la pregunta usando solo el siguiente contexto:
+{context}
+Pregunta: {question}
+""")
 
-    context = "\n\n".join([m["metadata"]["text"] for m in results["matches"]])
 
-    print("Contexto")
-    print(context)
-    print("----------------------------------------------")
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+
+chain = (
+    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+
+question = "¿Quién es Don Quijote?"
+print(chain.invoke(question))
